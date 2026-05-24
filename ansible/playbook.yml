@@ -1,0 +1,53 @@
+---
+- name: Setup SwiggyOps API Gateway
+  hosts: swiggyops_servers
+  become: yes
+  tasks:
+
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install AWS CLI
+      snap:
+        name: aws-cli
+        classic: yes
+
+    - name: Login to AWS ECR
+      shell: |
+        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 654654435115.dkr.ecr.ap-south-1.amazonaws.com
+
+    - name: Pull API Gateway image
+      shell: |
+        docker pull 654654435115.dkr.ecr.ap-south-1.amazonaws.com/swiggyops-api-gateway:latest
+
+    - name: Stop existing container
+      shell: |
+        docker rm -f api-gateway || true
+
+    - name: Run API Gateway container
+      shell: |
+        docker run -d \
+          --name api-gateway \
+          -p 80:80 \
+          --restart always \
+          654654435115.dkr.ecr.ap-south-1.amazonaws.com/swiggyops-api-gateway:latest
+
+    - name: Verify container is running
+      shell: docker ps | grep api-gateway
+      register: container_status
+
+    - name: Print container status
+      debug:
+        msg: "{{ container_status.stdout }}"
